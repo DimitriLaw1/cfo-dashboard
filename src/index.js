@@ -1,17 +1,31 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import React, { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import Login from "./Login";
+import { auth, onAuthStateChanged, signOut } from "./firebase";
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+function AuthGate() {
+  const [user, setUser] = useState(undefined);
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  if (user === undefined) return <div style={{ padding: 24 }}>Loading…</div>;
+  if (!user) return <Login />;
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          padding: 8,
+        }}
+      >
+        <span style={{ opacity: 0.7 }}>{user.email}</span>
+        <button onClick={() => signOut(auth)}>Sign out</button>
+      </div>
+      <App />
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<AuthGate />);
