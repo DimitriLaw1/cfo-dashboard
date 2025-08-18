@@ -10,7 +10,7 @@ import {
   query,
   serverTimestamp,
 } from "./firebase";
-import { startOfWeek, addDays, format } from "date-fns";
+import { startOfWeek, addDays, format, startOfDay, endOfDay } from "date-fns";
 
 const teamTabs = ["Content Team", "Sales Team", "Streamer Team", "C-suite"];
 const forTeamOptions = [
@@ -20,26 +20,37 @@ const forTeamOptions = [
   "Content Team",
 ];
 
-// ---- Bi-week utilities ----
-const FIRST_BIWEEK_START = new Date(2025, 6, 28); // Jul 28, 2025 (months 0-based)
+// ---- Bi-week constants & helpers ----
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+// Anchor all bi-weeks to ONE known Monday that starts Biweek #0:
+const FIRST_BIWEEK_START = startOfDay(new Date(2025, 6, 28)); // Mon, Jul 28, 2025
 
-function getCurrentBiWeekStart() {
-  const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-  const secondWeekStart = addDays(weekStart, 7);
-  return now.getTime() >= secondWeekStart.getTime()
-    ? secondWeekStart
-    : weekStart;
+// Given any date, snap to the anchored bi-week start (every 14 days from FIRST_BIWEEK_START)
+function getBiWeekStartFor(dateLike) {
+  const d = startOfDay(new Date(dateLike));
+  const diffDays = Math.floor(
+    (d.getTime() - FIRST_BIWEEK_START.getTime()) / MS_PER_DAY
+  );
+  const periods = Math.floor(diffDays / 14); // step in 14-day chunks
+  const start = addDays(FIRST_BIWEEK_START, periods * 14);
+  return start;
 }
 
+// Current anchored bi-week (as of "now")
+function getCurrentBiWeekStart() {
+  return getBiWeekStartFor(new Date());
+}
+
+// Build the display + bounds + stable key for a bi-week start date
 function biWeekFromStart(startDate) {
-  const s = new Date(startDate);
-  const e = addDays(s, 13);
+  const sLocal = startOfDay(new Date(startDate));
+  const eLocal = endOfDay(addDays(sLocal, 13)); // inclusive 14-day window
   return {
-    start: format(s, "MMM d"),
-    end: format(e, "MMM d, yyyy"),
-    startDate: s,
-    endDate: e,
+    start: format(sLocal, "MMM d"),
+    end: format(eLocal, "MMM d, yyyy"),
+    startDate: sLocal,
+    endDate: eLocal,
+    key: format(sLocal, "yyyy-MM-dd"), // stable key
   };
 }
 
@@ -61,11 +72,6 @@ function isOnTeam(employee, team) {
   return String(employee.team) === team;
 }
 
-function titleIs(employee, target) {
-  return String(employee.jobTitle || "").toLowerCase() === target.toLowerCase();
-}
-
-// Accept both the current and former title for the video lead
 function findVideoContentLead(employees) {
   return (
     findByTitle(
@@ -97,7 +103,7 @@ async function addCard({
     revenue,
     takeHome,
     createdAt: serverTimestamp(),
-    ...biWeekRange,
+    ...biWeekRange, // includes biWeekKey
   });
 }
 
@@ -112,7 +118,7 @@ export default function App() {
   const [employees, setEmployees] = useState([]);
   const [cards, setCards] = useState([]);
 
-  // View state for navigating bi-weeks
+  // View state for navigating bi-weeks (anchored)
   const [viewStartDate, setViewStartDate] = useState(getCurrentBiWeekStart());
   const biWeek = biWeekFromStart(viewStartDate);
   const currentStart = getCurrentBiWeekStart();
@@ -134,37 +140,40 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  // Filter by stable biWeekKey; fallback for older rows without the key.
   const inCurrentBiWeek = (c) => {
     try {
-      const s = new Date(c.biWeekStart);
-      const e = new Date(c.biWeekEnd);
-      return (
-        s.getTime() >= biWeek.startDate.getTime() &&
-        e.getTime() <= biWeek.endDate.getTime()
-      );
+      if (c.biWeekKey) return c.biWeekKey === biWeek.key;
+      if (c.biWeekStart) {
+        // infer key using the SAME anchoring logic, so periods always match navigation
+        const inferredStart = getBiWeekStartFor(new Date(c.biWeekStart));
+        const inferredKey = format(inferredStart, "yyyy-MM-dd");
+        return inferredKey === biWeek.key;
+      }
+      return false;
     } catch {
       return false;
     }
   };
 
   const handlePrev = () => {
-    const prev = addDays(viewStartDate, -14);
-    setViewStartDate(
-      prev.getTime() < FIRST_BIWEEK_START.getTime() ? FIRST_BIWEEK_START : prev
-    );
+    const prev = addDays(viewStartDate, -14); // always step 14 days
+    const clamped =
+      prev.getTime() < FIRST_BIWEEK_START.getTime() ? FIRST_BIWEEK_START : prev;
+    setViewStartDate(clamped);
   };
 
   const handleNext = () => {
-    const next = addDays(viewStartDate, 14);
-    setViewStartDate(
-      next.getTime() > currentStart.getTime() ? currentStart : next
-    );
+    const next = addDays(viewStartDate, 14); // always step 14 days
+    const clamped =
+      next.getTime() > currentStart.getTime() ? currentStart : next;
+    setViewStartDate(clamped);
   };
 
   const prevDisabled = viewStartDate.getTime() <= FIRST_BIWEEK_START.getTime();
   const nextDisabled = viewStartDate.getTime() >= currentStart.getTime();
 
-  // ✅ UPDATED: export ALL teams' rows for the current bi-week (ignores activeTab)
+  // CSV export (two-decimals; includes key)
   const downloadCSV = () => {
     const rows = cards.filter(inCurrentBiWeek).map((c) => ({
       name: c.name || "",
@@ -183,6 +192,7 @@ export default function App() {
           : c.takeHome || "",
       biWeekStart: c.biWeekStart || "",
       biWeekEnd: c.biWeekEnd || "",
+      biWeekKey: c.biWeekKey || "",
     }));
 
     const headers = Object.keys(
@@ -198,6 +208,7 @@ export default function App() {
         takeHome: "",
         biWeekStart: "",
         biWeekEnd: "",
+        biWeekKey: "",
       }
     );
 
@@ -231,9 +242,12 @@ export default function App() {
     if (!amount || amount <= 0) return;
 
     const forTeam = form.forTeam;
+
+    // Store anchored bi-week identifiers
     const biWeekRange = {
       biWeekStart: biWeek.startDate.toISOString(),
       biWeekEnd: biWeek.endDate.toISOString(),
+      biWeekKey: biWeek.key,
     };
 
     // Common role refs
@@ -510,40 +524,40 @@ export default function App() {
           takeHome: submitterShare,
         });
 
-        const ceo = findByTitle(employees, "ceo", "C-suite");
-        const coo = findByTitle(employees, "coo", "C-suite");
-        const cfo = findByTitle(employees, "cfo", "C-suite");
-        const company = findByTitle(employees, "company", "C-suite");
+        const ceo2 = findByTitle(employees, "ceo", "C-suite");
+        const coo2 = findByTitle(employees, "coo", "C-suite");
+        const cfo2 = findByTitle(employees, "cfo", "C-suite");
+        const company2 = findByTitle(employees, "company", "C-suite");
 
-        if (ceo && selected.id !== ceo.id)
+        if (ceo2 && selected.id !== ceo2.id)
           await addCard({
             forTeam,
             biWeekRange,
-            employee: ceo,
+            employee: ceo2,
             description: `C-suite split from ${selected.name}`,
             takeHome: pct(amount, 0.6),
           });
-        if (coo && selected.id !== coo.id)
+        if (coo2 && selected.id !== coo2.id)
           await addCard({
             forTeam,
             biWeekRange,
-            employee: coo,
+            employee: coo2,
             description: `C-suite split from ${selected.name}`,
             takeHome: pct(amount, 0.2),
           });
-        if (cfo && selected.id !== cfo.id)
+        if (cfo2 && selected.id !== cfo2.id)
           await addCard({
             forTeam,
             biWeekRange,
-            employee: cfo,
+            employee: cfo2,
             description: `C-suite split from ${selected.name}`,
             takeHome: pct(amount, 0.1),
           });
-        if (company && selected.id !== company.id)
+        if (company2 && selected.id !== company2.id)
           await addCard({
             forTeam,
             biWeekRange,
-            employee: company,
+            employee: company2,
             description: `C-suite split from ${selected.name}`,
             takeHome: pct(amount, 0.1),
           });
@@ -670,11 +684,11 @@ export default function App() {
               (c) => c.employeeId === emp.id && inCurrentBiWeek(c)
             );
             const totalRevenue = matchedCards.reduce(
-              (sum, c) => sum + (c.revenue || 0),
+              (sum, c) => sum + (Number(c.revenue) || 0),
               0
             );
             const totalTakeHome = matchedCards.reduce(
-              (sum, c) => sum + (c.takeHome || 0),
+              (sum, c) => sum + (Number(c.takeHome) || 0),
               0
             );
 

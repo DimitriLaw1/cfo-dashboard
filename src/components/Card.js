@@ -1,6 +1,8 @@
 import React from "react";
 
 const Card = ({ name, jobTitle, revenue, takeHome }) => {
+  const fmt = (n) => Number(n || 0).toFixed(2);
+
   return (
     <div
       style={{
@@ -20,13 +22,12 @@ const Card = ({ name, jobTitle, revenue, takeHome }) => {
       <h3 style={{ margin: "0 0 4px 0" }}>{name}</h3>
 
       <div style={{ marginBottom: "4px" }}>
-        Total Revenue Earned: <p style={{ fontWeight: "bold" }}>${revenue}</p>
+        Total Revenue Earned:{" "}
+        <p style={{ fontWeight: "bold" }}>${fmt(revenue)}</p>
       </div>
-      <div style={{}}>
+      <div>
         Total Take Home Pay:
-        <p style={{ color: "#0070f3", fontWeight: "bold" }}>
-          ${Number(takeHome).toFixed(2)}
-        </p>{" "}
+        <p style={{ color: "#0070f3", fontWeight: "bold" }}>${fmt(takeHome)}</p>
       </div>
     </div>
   );
