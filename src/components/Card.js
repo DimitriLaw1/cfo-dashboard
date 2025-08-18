@@ -24,7 +24,9 @@ const Card = ({ name, jobTitle, revenue, takeHome }) => {
       </div>
       <div style={{}}>
         Total Take Home Pay:
-        <p style={{ color: "#0070f3", fontWeight: "bold" }}>${takeHome}</p>{" "}
+        <p style={{ color: "#0070f3", fontWeight: "bold" }}>
+          ${Number(takeHome).toFixed(2)}
+        </p>{" "}
       </div>
     </div>
   );
