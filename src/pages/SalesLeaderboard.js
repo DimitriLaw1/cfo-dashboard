@@ -184,7 +184,7 @@ export default function SalesLeaderboard() {
         }}
       >
         {/* Title */}
-        <h2 style={{ margin: 0 }}>Sales Leaderboard</h2>
+        <h2 style={{ margin: 0 }}>Team Revenue Leaderboard</h2>
 
         {/* Filters */}
         <div

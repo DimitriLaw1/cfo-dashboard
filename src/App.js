@@ -13,7 +13,7 @@ import ExpensesTracker from "./pages/ExpensesTracker";
 
 const SECTIONS = [
   "Document your Revenue",
-  "Sales Leaderboard",
+  "Team Revenue Leaderboard",
   "Important Links",
   "Streamer database",
   "Mailing List Data",
@@ -29,7 +29,7 @@ export default function App() {
     switch (activeSection) {
       case "Document your Revenue":
         return <PaymentDistribution />;
-      case "Sales Leaderboard":
+      case "Team Revenue Leaderboard":
         return <SalesLeaderboard />;
       case "Important Links":
         return <ImportantLinks />;
