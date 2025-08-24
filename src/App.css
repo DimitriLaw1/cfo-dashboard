@@ -28,6 +28,224 @@
   color: #61dafb;
 }
 
+:root {
+  --bg: #f7f7fb;
+  --surface: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --primary: #0070f3;
+  --danger: #e11d48;
+  --ring: rgba(0, 112, 243, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px 14px;
+}
+.hamburger-btn {
+  font-size: 22px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.hamburger-btn:hover {
+  background: #f3f4f6;
+}
+.app-title {
+  font-size: 16px;
+  margin: 0;
+}
+
+.app-main {
+  padding: 16px;
+}
+
+/* Drawer */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 30;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--surface);
+  border-right: 1px solid #e5e7eb;
+  transform: translateX(-100%);
+  transition: transform 180ms ease-out;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+}
+.drawer.open {
+  transform: translateX(0);
+}
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.drawer-title {
+  font-weight: 700;
+}
+.drawer-close {
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+.drawer-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  overflow-y: auto;
+  height: 100%;
+}
+.drawer-link {
+  text-align: left;
+  padding: 10px 12px;
+  margin: 4px 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.drawer-link:hover {
+  background: #f9fafb;
+}
+.drawer-link.active {
+  background: #eef6ff;
+  border-color: #cfe6ff;
+}
+
+/* Important Links UI */
+.links-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 8px;
+}
+.pill-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.pill {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+}
+.pill.active {
+  border-color: #cfe6ff;
+  background: #eef6ff;
+}
+
+.links-card {
+  background: var(--surface);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.links-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.input {
+  flex: 1 1 260px;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+.input:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--ring);
+  border-color: #93c5fd;
+}
+
+.btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+}
+.btn.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+.btn.danger {
+  background: #fff;
+  color: var(--danger);
+  border-color: #fecdd3;
+}
+.btn.danger:hover {
+  background: #fff1f2;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th,
+.table td {
+  border-top: 1px solid #e5e7eb;
+  padding: 10px;
+}
+.table thead th {
+  background: #f9fafb;
+  text-align: left;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

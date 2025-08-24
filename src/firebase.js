@@ -7,7 +7,10 @@ import {
   getDocs,
   onSnapshot,
   query,
-  serverTimestamp, // ✅ add this
+  serverTimestamp,
+  doc,
+  deleteDoc,
+  where,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import {
@@ -26,27 +29,34 @@ const firebaseConfig = {
   appId: "1:879466357800:web:b1f6a9e836ae640fa7c11d",
 };
 
+// Initialize
 const app = initializeApp(firebaseConfig);
 
-// SDKs
+// SDK instances
 const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
 
-// Exports
+// Re-exports (centralized helpers)
 export {
+  // Core instances
   db,
   storage,
   auth,
-  // auth helpers
+
+  // Auth helpers
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
-  // firestore helpers
+
+  // Firestore helpers
   collection,
   addDoc,
   getDocs,
   onSnapshot,
   query,
-  serverTimestamp, // ✅ export for createdAt auditing
+  serverTimestamp,
+  doc,
+  deleteDoc,
+  where,
 };
