@@ -44,28 +44,23 @@ const ALLOWED_TAGS = new Set([
 function sanitizeHtml(html = "") {
   try {
     const parser = new DOMParser();
-    const parsed = parser.parseFromString(String(html), "text/html"); // renamed from `doc` -> `parsed`
+    const parsed = parser.parseFromString(String(html), "text/html");
 
     const clean = (node) => {
-      // Text node
       if (node.nodeType === Node.TEXT_NODE) {
         return document.createTextNode(node.nodeValue);
       }
-      // Element node
       if (node.nodeType === Node.ELEMENT_NODE) {
         const tag = node.tagName.toUpperCase();
-        // If tag not allowed, flatten it by returning cleaned children
         if (!ALLOWED_TAGS.has(tag)) {
           const frag = document.createDocumentFragment();
           node.childNodes.forEach((child) => frag.appendChild(clean(child)));
           return frag;
         }
-        // Create allowed element (drop all attributes)
         const el = document.createElement(tag.toLowerCase());
         node.childNodes.forEach((child) => el.appendChild(clean(child)));
         return el;
       }
-      // Anything else -> empty text
       return document.createTextNode("");
     };
 
@@ -75,7 +70,6 @@ function sanitizeHtml(html = "") {
     wrapper.appendChild(outFrag);
     return wrapper.innerHTML;
   } catch {
-    // On any parsing error, return plain text escaped by the browser
     const div = document.createElement("div");
     div.innerText = String(html);
     return div.innerHTML;
@@ -83,7 +77,7 @@ function sanitizeHtml(html = "") {
 }
 
 /* ---------------------------------------------------
-   Payment-structure tab: editable (HTML-enabled) list
+   Payment-structure tab: notebook-like cells (CRUD)
 ---------------------------------------------------- */
 function PaymentStructureList() {
   const [user, setUser] = useState(null);
@@ -101,6 +95,7 @@ function PaymentStructureList() {
   }, []);
 
   // Live query
+  // Live query
   useEffect(() => {
     if (!user) {
       setRows([]);
@@ -111,9 +106,17 @@ function PaymentStructureList() {
       qRef,
       (snap) => {
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        list.sort(
-          (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
-        );
+
+        // ---- sort OLDEST -> NEWEST so new entries appear at the bottom ----
+        list.sort((a, b) => {
+          const aSec = a.createdAt?.seconds ?? 0;
+          const aNano = a.createdAt?.nanoseconds ?? 0;
+          const bSec = b.createdAt?.seconds ?? 0;
+          const bNano = b.createdAt?.nanoseconds ?? 0;
+          if (aSec !== bSec) return aSec - bSec;
+          return aNano - bNano; // tie-breaker
+        });
+
         setRows(list);
         setErr("");
       },
@@ -133,7 +136,7 @@ function PaymentStructureList() {
     if (!clean) return;
     try {
       await addDoc(collection(db, "payment_structure"), {
-        text: clean, // store raw HTML; sanitize on render
+        text: clean, // raw HTML; sanitize on render
         createdAt: serverTimestamp(),
       });
       setText("");
@@ -180,7 +183,7 @@ function PaymentStructureList() {
   return (
     <div
       style={{
-        maxWidth: 900,
+        maxWidth: 1000,
         width: "100%",
         margin: "0 auto",
         display: "grid",
@@ -212,7 +215,7 @@ function PaymentStructureList() {
         </div>
       )}
 
-      {/* Add new bullet */}
+      {/* Add new cell */}
       <form
         onSubmit={addItem}
         style={{
@@ -224,7 +227,7 @@ function PaymentStructureList() {
       >
         <textarea
           className="input"
-          placeholder="Add the payment structure..."
+          placeholder="Type in the payment structure..."
           rows={3}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -253,51 +256,183 @@ function PaymentStructureList() {
             height: 52,
           }}
         >
-          Add
+          Add cell
         </button>
       </form>
 
-      {/* Scrollable list area (prevents huge page height) */}
+      {/* Notebook area (scrolls if long) */}
       <div
         style={{
-          background: "#fafafa",
+          background: "#f8fafc",
           border: "1px solid #e5e7eb",
           borderRadius: 12,
           padding: 12,
-          maxHeight: "45vh",
+          maxHeight: "65vh",
           overflowY: "auto",
         }}
       >
         {rows.length === 0 ? (
           <div style={{ textAlign: "center", color: "#666" }}>
             {user
-              ? "No bullets yet. Add your first one above."
+              ? "No cells yet. Add your first one above."
               : "Sign in to view items."}
           </div>
         ) : (
-          <ul
-            style={{
-              listStyle: "disc",
-              paddingLeft: 22,
-              margin: 0,
-              display: "grid",
-              gap: 12,
-            }}
-          >
-            {rows.map((r) => {
+          <div style={{ display: "grid", gap: 12 }}>
+            {rows.map((r, idx) => {
               const isEditing = editingId === r.id;
+              const created = r.createdAt?.seconds
+                ? new Date(r.createdAt.seconds * 1000)
+                : null;
+
               return (
-                <li key={r.id} style={{ display: "grid", gap: 6 }}>
-                  {isEditing ? (
-                    <>
+                <section
+                  key={r.id}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 10,
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                    overflow: "hidden",
+                    display: "grid",
+                  }}
+                >
+                  {/* Cell header */}
+                  <header
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      padding: "8px 12px",
+                      borderBottom: "1px solid #e5e7eb",
+                      background:
+                        "linear-gradient(90deg, #eef2ff 0%, #ffffff 40%)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                      }}
+                    >
+                      {/* left accent bar */}
+                      <div
+                        style={{
+                          width: 6,
+                          height: 18,
+                          borderRadius: 3,
+                          background: "#6366f1",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#111827",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Cell {idx + 1}
+                      </div>
+                      <div
+                        title={
+                          created ? created.toLocaleString() : "Not timestamped"
+                        }
+                        style={{
+                          color: "#6b7280",
+                          fontSize: 12,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {created ? created.toLocaleString() : ""}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                      {isEditing ? (
+                        <>
+                          <button
+                            className="btn primary"
+                            onClick={() => saveEdit(r.id)}
+                            disabled={!user || !editText.trim()}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              background: "#0070f3",
+                              color: "#fff",
+                              border: "none",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="btn"
+                            onClick={() => {
+                              setEditingId(null);
+                              setEditText("");
+                            }}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #d1d5db",
+                              background: "#fff",
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="btn"
+                            onClick={() => startEdit(r)}
+                            disabled={!user}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #d1d5db",
+                              background: "#fff",
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="btn danger"
+                            onClick={() => deleteItem(r.id)}
+                            disabled={!user}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #fecaca",
+                              background: "#fee2e2",
+                              color: "#991b1b",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </header>
+
+                  {/* Cell body */}
+                  <div style={{ padding: 12 }}>
+                    {isEditing ? (
                       <textarea
                         className="input"
-                        rows={4}
+                        rows={6}
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
                         disabled={!user}
                         style={{
-                          padding: 8,
+                          width: "100%",
+                          padding: 10,
                           border: "1px solid #e5e7eb",
                           borderRadius: 8,
                           resize: "vertical",
@@ -305,107 +440,31 @@ function PaymentStructureList() {
                             "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif",
                         }}
                       />
-                      <div
-                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-                      >
-                        <button
-                          className="btn primary"
-                          onClick={() => saveEdit(r.id)}
-                          disabled={!user || !editText.trim()}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: 8,
-                            background: "#0070f3",
-                            color: "#fff",
-                            border: "none",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="btn"
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditText("");
-                          }}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: 8,
-                            border: "1px solid #d1d5db",
-                            background: "#fff",
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "start",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {/* Render sanitized HTML */}
-                      <div
-                        style={{ flex: 1, wordBreak: "break-word" }}
-                        dangerouslySetInnerHTML={{
-                          __html: sanitizeHtml(r.text),
-                        }}
-                      />
+                    ) : (
                       <div
                         style={{
-                          display: "flex",
-                          gap: 8,
-                          flexShrink: 0,
+                          wordBreak: "break-word",
+                          lineHeight: 1.5,
                         }}
-                      >
-                        <button
-                          className="btn"
-                          onClick={() => startEdit(r)}
-                          disabled={!user}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 8,
-                            border: "1px solid #d1d5db",
-                            background: "#fff",
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn danger"
-                          onClick={() => deleteItem(r.id)}
-                          disabled={!user}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 8,
-                            border: "1px solid #fecaca",
-                            background: "#fee2e2",
-                            color: "#991b1b",
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </li>
+                        // Convert raw \n to <br/> after sanitizing so Enter creates visible new lines
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeHtml(r.text).replace(/\n/g, "<br/>"),
+                        }}
+                      />
+                    )}
+                  </div>
+                </section>
               );
             })}
-          </ul>
+          </div>
         )}
       </div>
 
       {/* Small tip for mobile */}
       <div style={{ fontSize: 12, color: "#6b7280" }}>
-        Tip: Basic HTML is supported (headings h1–h6, &lt;b&gt;, &lt;strong&gt;,
-        &lt;i&gt;, &lt;em&gt;, &lt;u&gt;, lists, &lt;br/&gt;, &lt;p&gt;). Other
-        tags/attributes are stripped.
+        Tip: Each entry is a separate cell. Basic HTML is supported (headings
+        h1–h6, &lt;b&gt;, &lt;strong&gt;, &lt;i&gt;, &lt;em&gt;, &lt;u&gt;,
+        lists, &lt;br/&gt;, &lt;p&gt;).
       </div>
     </div>
   );
@@ -418,7 +477,7 @@ function VisualPlaceholder() {
   return (
     <div
       style={{
-        maxWidth: 900,
+        maxWidth: 1000,
         width: "100%",
         margin: "0 auto",
       }}
