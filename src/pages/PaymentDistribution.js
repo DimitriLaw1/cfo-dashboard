@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Card from "../components/Card";
 import Tabs from "../components/Tabs";
 import {
@@ -101,6 +101,14 @@ async function addCard({
     ...biWeekRange,
   });
 }
+
+// NEW: simple currency formatter for USD
+const fmtCurrency = (n) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(Number(n || 0));
 
 export default function PaymentDistribution() {
   const [activeTab, setActiveTab] = useState(teamTabs[0]);
@@ -553,6 +561,16 @@ export default function PaymentDistribution() {
 
   const displayEmployees = employees.filter((e) => e.team === activeTab);
 
+  // NEW: derive all-time revenue across ALL cards (live updates via onSnapshot)
+  const allTimeRevenue = useMemo(
+    () =>
+      cards.reduce((sum, c) => {
+        const r = Number(c.revenue);
+        return sum + (isNaN(r) ? 0 : r);
+      }, 0),
+    [cards]
+  );
+
   return (
     <div style={{ display: "flex", justifyContent: "center", padding: "16px" }}>
       <div
@@ -564,6 +582,30 @@ export default function PaymentDistribution() {
           alignItems: "center",
         }}
       >
+        {/* NEW: All-time Team Revenue metric (live) */}
+        <div
+          style={{
+            width: "100%",
+            background: "#0f172a",
+            color: "white",
+            borderRadius: 12,
+            padding: "16px 20px",
+            marginBottom: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
+          }}
+          aria-live="polite"
+        >
+          <div style={{ fontWeight: 600, opacity: 0.9 }}>
+            All-time Team Revenue
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>
+            {fmtCurrency(allTimeRevenue)}
+          </div>
+        </div>
+
         <h2 style={{ textAlign: "center" }}>Revenue Log</h2>
 
         <div
