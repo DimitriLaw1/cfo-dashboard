@@ -224,7 +224,7 @@ function PaymentStructureList() {
       >
         <textarea
           className="input"
-          placeholder="Add HTML (e.g., &lt;h3&gt;Title&lt;/h3&gt; or &lt;b&gt;bold text&lt;/b&gt;)"
+          placeholder="Add the payment structure..."
           rows={3}
           value={text}
           onChange={(e) => setText(e.target.value)}
