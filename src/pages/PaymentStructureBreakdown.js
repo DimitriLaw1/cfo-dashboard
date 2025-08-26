@@ -17,7 +17,73 @@ import {
 const TABS = ["Payment structure", "Visual"];
 
 /* ---------------------------------------------------
-   Payment-structure tab: editable bullet list (CRUD)
+   Lightweight HTML sanitizer (allow simple formatting)
+   Allowed tags: h1–h6, b, strong, i, em, u, br, p, ul, ol, li, span
+   All attributes are stripped.
+---------------------------------------------------- */
+const ALLOWED_TAGS = new Set([
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "B",
+  "STRONG",
+  "I",
+  "EM",
+  "U",
+  "BR",
+  "P",
+  "UL",
+  "OL",
+  "LI",
+  "SPAN",
+]);
+
+function sanitizeHtml(html = "") {
+  try {
+    const parser = new DOMParser();
+    const parsed = parser.parseFromString(String(html), "text/html"); // renamed from `doc` -> `parsed`
+
+    const clean = (node) => {
+      // Text node
+      if (node.nodeType === Node.TEXT_NODE) {
+        return document.createTextNode(node.nodeValue);
+      }
+      // Element node
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const tag = node.tagName.toUpperCase();
+        // If tag not allowed, flatten it by returning cleaned children
+        if (!ALLOWED_TAGS.has(tag)) {
+          const frag = document.createDocumentFragment();
+          node.childNodes.forEach((child) => frag.appendChild(clean(child)));
+          return frag;
+        }
+        // Create allowed element (drop all attributes)
+        const el = document.createElement(tag.toLowerCase());
+        node.childNodes.forEach((child) => el.appendChild(clean(child)));
+        return el;
+      }
+      // Anything else -> empty text
+      return document.createTextNode("");
+    };
+
+    const outFrag = document.createDocumentFragment();
+    parsed.body.childNodes.forEach((n) => outFrag.appendChild(clean(n)));
+    const wrapper = document.createElement("div");
+    wrapper.appendChild(outFrag);
+    return wrapper.innerHTML;
+  } catch {
+    // On any parsing error, return plain text escaped by the browser
+    const div = document.createElement("div");
+    div.innerText = String(html);
+    return div.innerHTML;
+  }
+}
+
+/* ---------------------------------------------------
+   Payment-structure tab: editable (HTML-enabled) list
 ---------------------------------------------------- */
 function PaymentStructureList() {
   const [user, setUser] = useState(null);
@@ -45,7 +111,6 @@ function PaymentStructureList() {
       qRef,
       (snap) => {
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        // newest first
         list.sort(
           (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
         );
@@ -64,11 +129,11 @@ function PaymentStructureList() {
       setErr("Please sign in to add items.");
       return;
     }
-    const clean = text.trim();
+    const clean = (text || "").trim();
     if (!clean) return;
     try {
       await addDoc(collection(db, "payment_structure"), {
-        text: clean,
+        text: clean, // store raw HTML; sanitize on render
         createdAt: serverTimestamp(),
       });
       setText("");
@@ -159,8 +224,8 @@ function PaymentStructureList() {
       >
         <textarea
           className="input"
-          placeholder="Add a payment structure bullet..."
-          rows={2}
+          placeholder="Add HTML (e.g., &lt;h3&gt;Title&lt;/h3&gt; or &lt;b&gt;bold text&lt;/b&gt;)"
+          rows={3}
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={!user}
@@ -169,7 +234,9 @@ function PaymentStructureList() {
             border: "1px solid #e5e7eb",
             borderRadius: 8,
             resize: "vertical",
-            minHeight: 42,
+            minHeight: 52,
+            fontFamily:
+              "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif",
           }}
         />
         <button
@@ -183,7 +250,7 @@ function PaymentStructureList() {
             color: "#fff",
             border: "none",
             fontWeight: 600,
-            height: 42,
+            height: 52,
           }}
         >
           Add
@@ -214,7 +281,7 @@ function PaymentStructureList() {
               paddingLeft: 22,
               margin: 0,
               display: "grid",
-              gap: 8,
+              gap: 12,
             }}
           >
             {rows.map((r) => {
@@ -225,7 +292,7 @@ function PaymentStructureList() {
                     <>
                       <textarea
                         className="input"
-                        rows={2}
+                        rows={4}
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
                         disabled={!user}
@@ -234,9 +301,13 @@ function PaymentStructureList() {
                           border: "1px solid #e5e7eb",
                           borderRadius: 8,
                           resize: "vertical",
+                          fontFamily:
+                            "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif",
                         }}
                       />
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                      >
                         <button
                           className="btn primary"
                           onClick={() => saveEdit(r.id)}
@@ -279,9 +350,13 @@ function PaymentStructureList() {
                         flexWrap: "wrap",
                       }}
                     >
-                      <div style={{ whiteSpace: "pre-wrap", flex: 1 }}>
-                        {r.text}
-                      </div>
+                      {/* Render sanitized HTML */}
+                      <div
+                        style={{ flex: 1, wordBreak: "break-word" }}
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeHtml(r.text),
+                        }}
+                      />
                       <div
                         style={{
                           display: "flex",
@@ -328,7 +403,9 @@ function PaymentStructureList() {
 
       {/* Small tip for mobile */}
       <div style={{ fontSize: 12, color: "#6b7280" }}>
-        Tip: This list scrolls if it gets long.
+        Tip: Basic HTML is supported (headings h1–h6, &lt;b&gt;, &lt;strong&gt;,
+        &lt;i&gt;, &lt;em&gt;, &lt;u&gt;, lists, &lt;br/&gt;, &lt;p&gt;). Other
+        tags/attributes are stripped.
       </div>
     </div>
   );
